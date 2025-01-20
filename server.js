@@ -6,7 +6,7 @@ const proxy = httpProxy.createProxyServer({ target: "http://localhost:8888" });
 const server = http.createServer((req, res) => {
   proxy.web(req, res, {}, (e) => {
     console.error("Proxy error:", e);
-    res.writeHead(502);
+    res.writeHead(504);
     res.end("Bad gateway");
   });
 });
