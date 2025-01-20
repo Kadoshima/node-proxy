@@ -5,9 +5,11 @@ const httpProxy = require("http-proxy");
 const host = process.env.HOST || "localhost";
 const proxy = httpProxy.createProxyServer({
   target: "http://" + host + ":8888",
-  // デバッグオプション
-  // 例えば 'proxyReq', 'proxyRes' イベントでログを出すなど
 });
+
+// ログ出力
+console.log('Proxy Target:', proxy.options.target);
+
 proxy.on('error', (err, req, res) => {
   console.error('Proxy error occurred:', err);
   res.writeHead(504);
