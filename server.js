@@ -2,8 +2,9 @@ const http = require("http");
 const httpProxy = require("http-proxy");
 
 // リバースプロキシ作成
+const host = process.env.HOST || "localhost";
 const proxy = httpProxy.createProxyServer({
-  target: "http://comfyui:8888",
+  target: "http://" + host + ":8888",
   // デバッグオプション
   // 例えば 'proxyReq', 'proxyRes' イベントでログを出すなど
 });
@@ -19,6 +20,19 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
   console.log('Proxy Response Headers:', proxyRes.headers);
 });
 
+const server = http.createServer((req, res) => {
+  if (req.url === '/healthcheck') {
+    // ヘルスチェックのパス。すぐに 200 を返す
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    return res.end('OK');
+  }
+  // それ以外はリバースプロキシへ
+  proxy.web(req, res, {}, (err) => {
+    console.error("Proxy error:", err);
+    res.writeHead(504);
+    res.end("Gateway Timeout");
+  });
+});
 
 // WebSocketもサポート
 server.on("upgrade", function (req, socket, head) {
