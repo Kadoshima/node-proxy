@@ -3,8 +3,9 @@ const httpProxy = require("http-proxy");
 
 // リバースプロキシ作成
 const host = process.env.HOST || "localhost";
+const hostPort = process.env.HOST_PORT || 8188;
 const proxy = httpProxy.createProxyServer({
-  target: "http://" + host + ":8888",
+  target: "http://" + host + ":" + hostPort,
 });
 
 // ログ出力
