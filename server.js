@@ -2,7 +2,7 @@ const http = require("http");
 const httpProxy = require("http-proxy");
 
 // リバースプロキシ作成
-const proxy = httpProxy.createProxyServer({ target: "http://localhost:8888" });
+const proxy = httpProxy.createProxyServer({ target: "http://myjupyter:8888" });
 const server = http.createServer((req, res) => {
   proxy.web(req, res, {}, (e) => {
     console.error("Proxy error:", e);
