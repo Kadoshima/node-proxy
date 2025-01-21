@@ -24,17 +24,11 @@ proxy.on("error", (err, req, res) => {
 proxy.on("proxyReq", (proxyReq, req, res, options) => {
   // /comfyui から始まるURLを ComfyUI のルートに変換する
   if (req.url.startsWith("/comfyui")) {
-    // 例: /comfyui/abc → /abc
     proxyReq.path = req.url.replace(/^\/comfyui/, "") || "/";
-  }
-  // /jupyter から始まるURLを Jupyter のルートに変換する
-  else if (req.url.startsWith("/jupyter")) {
-    proxyReq.path = req.url.replace(/^\/jupyter/, "") || "/";
   }
 });
 
 const server = http.createServer((req, res) => {
-  // ヘルスチェック
   if (req.url === "/healthcheck") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     return res.end("OK");
