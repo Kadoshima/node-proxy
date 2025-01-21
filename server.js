@@ -15,50 +15,74 @@ const proxy = httpProxy.createProxyServer();
 proxy.on("error", (err, req, res) => {
   console.error("Proxy error occurred:", err);
   if (!res.headersSent) {
-    res.writeHead(504);
+    res.writeHead(504, { "Content-Type": "text/plain" });
   }
-  res.end("Gateway Timeout"+comfyuiHost+comfyuiHostPort+jupyterHost+jupyterHostPort);
+  res.end("Gateway Timeout");
 });
 
+// パスリライト用
 proxy.on("proxyReq", (proxyReq, req, res, options) => {
-  console.log("Proxy Request Headers:", proxyReq.getHeaderNames());
-});
-
-proxy.on("proxyRes", (proxyRes, req, res) => {
-  console.log("Proxy Response Headers:", proxyRes.headers);
+  // /comfyui から始まるURLを ComfyUI のルートに変換する
+  if (req.url.startsWith("/comfyui")) {
+    // 例: /comfyui/abc → /abc
+    proxyReq.path = req.url.replace(/^\/comfyui/, "") || "/";
+  }
+  // /jupyter から始まるURLを Jupyter のルートに変換する
+  else if (req.url.startsWith("/jupyter")) {
+    proxyReq.path = req.url.replace(/^\/jupyter/, "") || "/";
+  }
 });
 
 const server = http.createServer((req, res) => {
+  // ヘルスチェック
   if (req.url === "/healthcheck") {
-    // ヘルスチェック
     res.writeHead(200, { "Content-Type": "text/plain" });
     return res.end("OK");
   }
 
-  if (req.url === "/comfyui") {
-    proxy.web(req, res, {
-      target: `http://${comfyuiHost}:${comfyuiHostPort}`,
-    });
-  } else if (req.url === "/jupyter") {
+  // Jupyter: /jupyter だけ来たら、/jupyter/tree? へリダイレクト
+  if (req.url === "/jupyter") {
+    res.writeHead(302, { Location: "/jupyter/tree?" });
+    return res.end();
+  }
+  // Jupyter: /jupyter/... の場合はすべて Jupyter へプロキシ
+  else if (req.url.startsWith("/jupyter")) {
     proxy.web(req, res, {
       target: `http://${jupyterHost}:${jupyterHostPort}`,
     });
-  } else {
-    res.writeHead(404, { "Content-Type": "text/plain" });
-    res.end("Not Found");
+    return;
   }
+
+  // ComfyUI: /comfyui だけ来た場合、ComfyUIのトップへ飛ばしたい
+  if (req.url === "/comfyui") {
+    // 例: /comfyui だけでアクセスされたら /comfyui/ にリダイレクト
+    // ComfyUI が / でトップページを返すなら、リライト後に / でアクセスさせればOK
+    res.writeHead(302, { Location: "/comfyui/" });
+    return res.end();
+  }
+  // ComfyUI: /comfyui/... の場合はすべて ComfyUI へプロキシ
+  else if (req.url.startsWith("/comfyui")) {
+    proxy.web(req, res, {
+      target: `http://${comfyuiHost}:${comfyuiHostPort}`,
+    });
+    return;
+  }
+
+  // それ以外は 404
+  res.writeHead(404, { "Content-Type": "text/plain" });
+  res.end("Not Found");
 });
 
-// WebSocketのupgradeイベントでも振り分ける
-server.on("upgrade", function (req, socket, head) {
-  if (req.url === "/comfyui") {
+// WebSocketのupgradeイベント
+server.on("upgrade", (req, socket, head) => {
+  if (req.url.startsWith("/comfyui")) {
     proxy.ws(req, socket, head, {
       target: `http://${comfyuiHost}:${comfyuiHostPort}`,
     }, (err) => {
       console.error("WebSocket proxy error:", err);
       socket.end();
     });
-  } else if (req.url === "/jupyter") {
+  } else if (req.url.startsWith("/jupyter")) {
     proxy.ws(req, socket, head, {
       target: `http://${jupyterHost}:${jupyterHostPort}`,
     }, (err) => {
@@ -66,17 +90,16 @@ server.on("upgrade", function (req, socket, head) {
       socket.end();
     });
   } else {
-    // 該当しないパスはcloseする
     socket.end();
   }
 });
 
-// ポートはAzureが割り当てる環境変数 PORT を使用
+// ポート設定
 const port = process.env.PORT || 8080;
-server.listen(port, () => {
+server.listen(port, "0.0.0.0", () => {
   console.log(`Reverse proxy server listening on port ${port}`);
   console.log(
-    `ComfyUI target: http://${comfyuiHost}:${comfyuiHostPort}, ` + 
+    `ComfyUI target: http://${comfyuiHost}:${comfyuiHostPort}, ` +
     `Jupyter target: http://${jupyterHost}:${jupyterHostPort}`
   );
 });
