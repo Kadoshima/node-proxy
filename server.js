@@ -1,11 +1,18 @@
 const http = require("http");
 const httpProxy = require("http-proxy");
 
-// リバースプロキシ作成
-const host = process.env.HOST || "localhost";
-const hostPort = process.env.HOST_PORT || 8188;
-const proxy = httpProxy.createProxyServer({
+// comfyuiあてリバースプロキシ作成
+const comfyuiHost = process.env.COMFYUI_HOST || "localhost";
+const comfyuiHostPort = process.env.COMFYUI_HOST_PORT || 8188;
+const comfyuiProxy = httpProxy.createProxyServer({
   target: "http://" + host + ":" + hostPort,
+});
+
+// jupyterあてリバースプロキシ作成
+const jupyterHost = process.env.JUPYTER_HOST || "localhost";
+const jupyterHostPort = process.env.JUPYTER_HOST_PORT || 8888;
+const jupyterProxy = httpProxy.createProxyServer({
+  target: "http://" + jupyterHost + ":" + jupyterHostPort,
 });
 
 // ログ出力
@@ -29,12 +36,26 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     return res.end('OK');
   }
+
+  if (req.url === '/comfyui') {
+    // それ以外はリバースプロキシへ
+    comfyuiProxy.web(req, res, {}, (err) => {
+      console.error("Proxy error:", err);
+      res.writeHead(504);
+      res.end("Gateway Timeout");
+    });
+  }
+  else if (req.url === '/jupyter') {
   // それ以外はリバースプロキシへ
-  proxy.web(req, res, {}, (err) => {
-    console.error("Proxy error:", err);
-    res.writeHead(504);
-    res.end("Gateway Timeout");
-  });
+    jupyterProxy.web(req, res, {}, (err) => {
+      console.error("Proxy error:", err);
+      res.writeHead(504);
+      res.end("Gateway Timeout");
+    });
+  }else{
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+  }
 });
 
 // WebSocketもサポート
