@@ -17,7 +17,7 @@ proxy.on("error", (err, req, res) => {
   if (!res.headersSent) {
     res.writeHead(504);
   }
-  res.end("Gateway Timeout");
+  res.end("Gateway Timeout"+comfyuiHost+comfyuiHostPort+jupyterHost+jupyterHostPort);
 });
 
 proxy.on("proxyReq", (proxyReq, req, res, options) => {
